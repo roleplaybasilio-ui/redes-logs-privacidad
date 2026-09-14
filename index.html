@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redes, Logs y Privacidad IP — Guía Técnica</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-alt: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #7ee787;
+    --code-bg: #1f242c;
+    --warn: #f0883e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  header {
+    background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 3rem 1.5rem 2rem;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 2.2rem;
+    color: #fff;
+    margin-bottom: 0.5rem;
+  }
+  header p {
+    color: var(--muted);
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  nav {
+    position: sticky;
+    top: 0;
+    background: rgba(13, 17, 23, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 1.5rem;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    z-index: 100;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--accent); }
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  section {
+    margin-bottom: 3.5rem;
+    padding-top: 1rem;
+  }
+  h2 {
+    font-size: 1.6rem;
+    color: #fff;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--accent);
+    display: inline-block;
+  }
+  h3 {
+    font-size: 1.15rem;
+    color: var(--accent2);
+    margin: 1.8rem 0 0.8rem;
+  }
+  p { margin-bottom: 1rem; }
+  ul, ol { margin: 0 0 1rem 1.5rem; }
+  li { margin-bottom: 0.4rem; }
+  code {
+    background: var(--code-bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 0.88em;
+    color: var(--accent2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+  }
+  .card {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.3rem 1.5rem;
+    margin: 1.2rem 0;
+  }
+  .card.warn { border-left: 4px solid var(--warn); }
+  .card.info { border-left: 4px solid var(--accent); }
+  .card.ok { border-left: 4px solid var(--accent2); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--bg-alt);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    color: var(--accent2);
+    white-space: pre;
+  }
+  footer {
+    text-align: center;
+    padding: 2rem 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Redes, Logs y Privacidad IP</h1>
+  <p>Guía técnica sobre el modelo cliente-servidor en HTTP, la configuración de access logs en Nginx/Apache y los mecanismos que afectan a la visibilidad de una dirección IP.</p>
+</header>
+
+<nav>
+  <a href="#http">1. Cliente-Servidor HTTP</a>
+  <a href="#logs">2. Access Logs</a>
+  <a href="#privacidad">3. Privacidad IP</a>
+</nav>
+
+<main>
+
+<!-- ============================================================ -->
+<section id="http">
+  <h2>1. Modelo cliente-servidor en HTTP</h2>
+
+  <p>HTTP (HyperText Transfer Protocol) es un protocolo de la capa de aplicación basado en un modelo <strong>petición-respuesta</strong>. Un <strong>cliente</strong> (normalmente un navegador) envía una petición a un <strong>servidor</strong>, y el servidor devuelve una respuesta.</p>
+
+  <h3>Flujo de una petición HTTP</h3>
+  <div class="diagram">
+  CLIENTE                                          SERVIDOR
+  (navegador)                                      (nginx, apache)
+      |                                                 |
+      |  1. Resolución DNS: ejemplo.com -> 93.184.216.34|
+      |------------------------------------------------>|
+      |                                                 |
+      |  2. Conexión TCP (3-way handshake)              |
+      |     SYN  -------------------------------------->|
+      |     <------------------------------------ SYN-ACK|
+      |     ACK  -------------------------------------->|
+      |                                                 |
+      |  3. (Si HTTPS) Handshake TLS                    |
+      |     ClientHello ------------------------------->|
+      |     <------------------------------- ServerHello|
+      |     <------------------------------- Certificado|
+      |     ... intercambio de claves ...               |
+      |                                                 |
+      |  4. Petición HTTP                               |
+      |     GET /index.html HTTP/1.1  ----------------->|
+      |     Host: ejemplo.com                           |
+      |     User-Agent: Mozilla/5.0                     |
+      |     Accept: text/html                           |
+      |                                                 |
+      |  5. Respuesta HTTP                              |
+      |     <---------------- HTTP/1.1 200 OK           |
+      |     <---------------- Content-Type: text/html   |
+      |     <---------------- Content-Length: 1256      |
+      |     <---------------- &lt;html&gt;...&lt;/html&gt;          |
+      |                                                 |
+      |  6. Cierre de conexión (o keep-alive)           |
+  </div>
+
+  <h3>Estructura de un paquete HTTP</h3>
+  <p>Una petición HTTP consta de:</p>
+  <ul>
+    <li><strong>Línea de petición:</strong> método (<code>GET</code>, <code>POST</code>, etc.), ruta (<code>/index.html</code>) y versión (<code>HTTP/1.1</code>).</li>
+    <li><strong>Cabeceras (headers):</strong> metadatos como <code>Host</code>, <code>User-Agent</code>, <code>Accept</code>, <code>Cookie</code>, <code>Authorization</code>.</li>
+    <li><strong>Cuerpo (body):</strong> opcional, usado en <code>POST</code> y <code>PUT</code> para enviar datos.</li>
+  </ul>
+
+  <h3>¿Dónde viaja la IP en TCP/IP?</h3>
+  <p>HTTP va montado sobre TCP, que a su vez va sobre IP. La dirección IP viaja en la <strong>cabecera del paquete IP</strong>, en dos campos:</p>
+
+  <table>
+    <thead>
+      <tr><th>Capa</th><th>Protocolo</th><th>Qué añade</th><th>Dónde está la IP</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Aplicación</td><td>HTTP</td><td>Método, headers, body</td><td>No hay IP aquí</td></tr>
+      <tr><td>Transporte</td><td>TCP</td><td>Puertos origen/destino, flags, secuencia</td><td>No hay IP aquí</td></tr>
+      <tr><td>Red</td><td>IP</td><td>IP origen, IP destino, TTL</td><td><strong>Aquí sí</strong></td></tr>
+      <tr><td>Enlace</td><td>Ethernet/WiFi</td><td>MAC origen, MAC destino</td><td>No hay IP aquí</td></tr>
+    </tbody>
+  </table>
+
+  <p>El paquete IP tiene esta forma:</p>
+  <pre><code>+--------+--------+--------+--------+
+| Version|  IHL   |    ToS         |  (1 byte + 1 byte + 1 byte)
++--------+--------+--------+--------+
+|          Total Length             |
++--------+--------+--------+--------+
+|         Identification            |
++--------+--------+--------+--------+
+|Flags|      Fragment Offset        |
++--------+--------+--------+--------+
+|   TTL  |   Protocol   |  Header   |
+|        |              |  Checksum |
++--------+--------+--------+--------+
+|         Source IP Address         |  <- IP del CLIENTE
++--------+--------+--------+--------+
+|      Destination IP Address       |  <- IP del SERVIDOR
++--------+--------+--------+--------+
+|          Options (opcional)       |
++--------+--------+--------+--------+
+|              Payload              |  <- Aquí va TCP + HTTP
++--------+--------+--------+--------+</code></pre>
+
+  <p>Cuando el cliente envía una petición HTTP, el paquete IP lleva la <strong>IP del cliente en el campo Source</strong> y la <strong>IP del servidor en Destination</strong>. El servidor, al recibirlo, puede ver la IP del cliente. Cuando responde, invierte los campos.</p>
+
+  <div class="card info">
+    <strong>Importante:</strong> la IP del cliente es visible para el servidor en la capa IP, no en HTTP. Por eso los servidores web pueden registrar la IP en sus logs de acceso, aunque el cliente no la envíe explícitamente en ningún header HTTP.
+  </div>
+
+  <h3>NAT: cómo varias máquinas comparten una IP</h3>
+  <p>La mayoría de redes domésticas usan <strong>NAT (Network Address Translation)</strong>. Tu router tiene una IP pública asignada por tu ISP, y todos los dispositivos de tu casa (móvil, portátil, TV) comparten esa IP pública. Internamente usan IPs privadas (<code>192.168.x.x</code>, <code>10.x.x.x</code>). El router traduce las IPs privadas a la pública al salir a internet.</p>
+  <div class="diagram">
+  [Móvil 192.168.1.10]  \
+  [PC 192.168.1.11]      >--- [Router NAT] --- [IP pública 88.12.34.56] --- Internet
+  [TV 192.168.1.12]     /          |
+                                   |
+                          Traduce IP privada -> pública
+                          Guarda tabla de traducciones
+  </div>
+
+</section>
+
+<!-- ============================================================ -->
+<section id="logs">
+  <h2>2. Configuración de access logs en Nginx y Apache</h2>
+
+  <p>Los <strong>access logs</strong> registran cada petición que recibe el servidor: IP del cliente, fecha, ruta solicitada, código de respuesta, user-agent, etc. Se usan para monitorizar tráfico propio, detectar ataques, auditar accesos y depurar errores.</p>
+
+  <h3>Nginx: directivas de access_log</h3>
+  <p>En Nginx, los logs se configuran en <code>nginx.conf</code> o en los archivos de sitio dentro de <code>/etc/nginx/sites-available/</code>.</p>
+
+  <pre><code># Formato por defecto (combined)
+log_format combined '$remote_addr - $remote_user [$time_local] '
+                    '"$request" $status $body_bytes_sent '
+                    '"$http_referer" "$http_user_agent"';
+
+# Access log global
+access_log /var/log/nginx/access.log combined;
+
+# Access log por sitio
+server {
+    listen 80;
+    server_name ejemplo.com;
+
+    access_log /var/log/nginx/ejemplo.access.log combined;
+    error_log  /var/log/nginx/ejemplo.error.log warn;
+
+    location / {
+        root /var/www/ejemplo;
+        index index.html;
+    }
+}</code></pre>
+
+  <p><strong>Variables útiles en Nginx:</strong></p>
+  <table>
+    <thead><tr><th>Variable</th><th>Qué contiene</th></tr></thead>
+    <tbody>
+      <tr><td><code>$remote_addr</code></td><td>IP del cliente (o del proxy si hay uno delante)</td></tr>
+      <tr><td><code>$http_x_forwarded_for</code></td><td>IP original si el cliente viene detrás de un proxy</td></tr>
+      <tr><td><code>$request</code></td><td>Línea de petición completa (método + ruta + versión)</td></tr>
+      <tr><td><code>$status</code></td><td>Código de respuesta HTTP (200, 404, 500…)</td></tr>
+      <tr><td><code>$http_user_agent</code></td><td>Navegador y sistema operativo del cliente</td></tr>
+      <tr><td><code>$request_time</code></td><td>Tiempo que tardó la petición en segundos</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Apache: directivas de CustomLog</h3>
+  <p>En Apache, los logs se configuran en <code>httpd.conf</code> o en los virtual hosts.</p>
+
+  <pre><code># Formato combined (por defecto)
+LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+
+# Access log global
+CustomLog /var/log/apache2/access.log combined
+
+# Virtual host
+&lt;VirtualHost *:80&gt;
+    ServerName ejemplo.com
+    DocumentRoot /var/www/ejemplo
+
+    CustomLog /var/log/apache2/ejemplo.access.log combined
+    ErrorLog  /var/log/apache2/ejemplo.error.log
+&lt;/VirtualHost&gt;</code></pre>
+
+  <p><strong>Directivas útiles en Apache:</strong></p>
+  <table>
+    <thead><tr><th>Directiva</th><th>Qué hace</th></tr></thead>
+    <tbody>
+      <tr><td><code>LogFormat</code></td><td>Define el formato de las líneas del log</td></tr>
+      <tr><td><code>CustomLog</code></td><td>Asigna un archivo y formato al access log</td></tr>
+      <tr><td><code>ErrorLog</code></td><td>Archivo donde se escriben los errores</td></tr>
+      <tr><td><code>LogLevel</code></td><td>Nivel de detalle de los errores (warn, error, debug…)</td></tr>
+      <tr><td><code>SetEnvIf</code></td><td>Condiciones para decidir qué se registra</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Privacidad de datos en los logs</h3>
+  <p>Las IPs son datos personales según el GDPR. Si vas a guardar logs, debes aplicar medidas:</p>
+
+  <div class="card warn">
+    <strong>Obligaciones GDPR para logs:</strong>
+    <ul>
+      <li><strong>Minimización:</strong> registra solo lo necesario. No guardes headers completos ni cookies si no los usas.</li>
+      <li><strong>Anonimización:</strong> sustituye el último octeto de la IP por 0. Ejemplo: <code>88.12.34.0</code> en lugar de <code>88.12.34.56</code>.</li>
+      <li><strong>Seudonimización:</strong> guarda un hash de la IP en lugar de la IP en claro.</li>
+      <li><strong>Retención limitada:</strong> borra los logs pasados X días (normalmente 30–90).</li>
+      <li><strong>Acceso restringido:</strong> solo administradores deben poder leer los logs.</li>
+    </ul>
+  </div>
+
+  <h4>Anonimizar IP en Nginx</h4>
+  <pre><code># Enmascara el último octeto de IPv4 y los últimos 80 bits de IPv6
+map $remote_addr $remote_addr_anon {
+    ~(?P&lt;ip&gt;\d+\.\d+\.\d+)\.\d+    "${ip}.0";
+    ~(?P&lt;ip&gt;[a-f0-9:]+:+)+[a-f0-9]+ "${ip}::";
+    default                          "0.0.0.0";
+}
+
+log_format privacy '$remote_addr_anon - $remote_user [$time_local] '
+                    '"$request" $status $body_bytes_sent';
+
+access_log /var/log/nginx/access.log privacy;</code></pre>
+
+  <h4>Anonimizar IP en Apache</h4>
+  <pre><code># Con mod_remoteip + mod_log_config
+# O usando un formato personalizado con expresiones
+LogFormat "%{REMOTE_ADDR}e ..." ...
+
+# Alternativa: rotar y ofuscar con logrotate + script externo
+/var/log/apache2/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 640 root adm
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl reload apache2 > /dev/null
+    endscript
+}</code></pre>
+
+  <div class="card ok">
+    <strong>Buena práctica:</strong> guarda los logs en un volumen cifrado, con permisos <code>640</code> y propietario <code>root:adm</code>. Si tu web tiene login, nunca registres contraseñas ni tokens en el log. Revisa el <code>User-Agent</code> solo cuando sea necesario para seguridad.
+  </div>
+
+</section>
+
+<!-- ============================================================ -->
+<section id="privacidad">
+  <h2>3. Mecanismos que afectan a la visibilidad de una IP</h2>
+
+  <p>La IP que ve un servidor no siempre es la IP real del usuario. Varios mecanismos se interponen y modifican lo que el servidor percibe.</p>
+
+  <h3>Proxies</h3>
+  <p>Un proxy es un intermediario que recibe la petición del cliente y la reenvía al servidor. El servidor ve la IP del proxy, no la del cliente.</p>
+  <div class="diagram">
+  [Cliente 88.12.34.56] --> [Proxy 203.0.113.10] --> [Servidor]
+                                 |
+                                 +-- El servidor ve 203.0.113.10
+  </div>
+  <p>Si el proxy añade la cabecera <code>X-Forwarded-For</code>, el servidor puede saber la IP original. Si no, la pierde.</p>
+  <pre><code>X-Forwarded-For: 88.12.34.56, 203.0.113.10
+X-Real-IP: 88.12.34.56</code></pre>
+
+  <h3>VPN (Virtual Private Network)</h3>
+  <p>Una VPN cifra todo el tráfico del cliente y lo enruta a través de un servidor VPN. El servidor web ve la IP del servidor VPN, no la del cliente. Además, el ISP del cliente no puede ver qué sitios visita.</p>
+  <div class="diagram">
+  [Cliente] ==túnel cifrado==> [Servidor VPN 198.51.100.5] --> [Servidor web]
+                                                              |
+                                          El servidor web ve 198.51.100.5
+  </div>
+
+  <h3>CGNAT (Carrier-Grade NAT)</h3>
+  <p>Muchos ISPs usan CGNAT: en lugar de dar una IP pública a cada cliente, comparten una sola IP pública entre cientos o miles de clientes. Esto hace que la IP visible sea la del ISP, no la del usuario, y que la geolocalización apunte a la sede del ISP.</p>
+  <div class="diagram">
+  [Cliente A 10.0.0.1]  \
+  [Cliente B 10.0.0.2]   >-- [CGNAT del ISP] -- [IP pública 100.64.x.x] --> Internet
+  [Cliente C 10.0.0.3]  /
+  </div>
+  <p>Con CGNAT, la IP pública compartida puede estar en otra ciudad distinta a la del usuario.</p>
+
+  <h3>Tor</h3>
+  <p>Tor enruta el tráfico a través de tres nodos voluntarios, cifrando en capas. El servidor web ve la IP del nodo de salida, no la del cliente. La geolocalización de esa IP suele ser aleatoria (el nodo puede estar en cualquier país).</p>
+
+  <h3>Datos móviles</h3>
+  <p>Cuando navegas con datos móviles (4G/5G), tu operadora te asigna una IP de su pool, compartida entre muchos usuarios. La geolocalización por IP suele apuntar a la sede de la operadora, no a tu posición real.</p>
+
+  <h3>Tabla comparativa</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Mecanismo</th>
+        <th>IP que ve el servidor</th>
+        <th>Precisión de geolocalización</th>
+        <th>¿Se puede saber la IP real?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Sin nada</td><td>IP real del router</td><td>Ciudad / provincia</td><td>Sí (es la que ve)</td></tr>
+      <tr><td>Proxy</td><td>IP del proxy</td><td>Ciudad del proxy</td><td>Solo si hay X-Forwarded-For</td></tr>
+      <tr><td>VPN</td><td>IP del servidor VPN</td><td>Ciudad del servidor VPN</td><td>No</td></tr>
+      <tr><td>CGNAT</td><td>IP compartida del ISP</td><td>Sede del ISP</td><td>No, salvo que el ISP lo registre</td></tr>
+      <tr><td>Tor</td><td>IP del nodo de salida</td><td>Aleatoria</td><td>No</td></tr>
+      <tr><td>Datos móviles</td><td>IP del pool de la operadora</td><td>Sede de la operadora</td><td>No</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Por qué la geolocalización por IP nunca es exacta</h3>
+  <ul>
+    <li>Las bases de datos de geolocalización (MaxMind, IP2Location) asignan ubicaciones a <strong>rangos de IP</strong>, no a IPs individuales.</li>
+    <li>Los ISP reasignan IPs dinámicamente cada pocas horas o días.</li>
+    <li>Una IP puede estar registrada en una ciudad pero usarse en otra provincia.</li>
+    <li>Con CGNAT, miles de usuarios comparten la misma IP.</li>
+    <li>La precisión típica es <strong>a nivel de ciudad o provincia</strong>, y a veces ni eso.</li>
+  </ul>
+
+  <div class="card info">
+    <strong>Conclusión técnica:</strong> la IP es un identificador de red, no de persona. Su visibilidad depende de proxies, VPNs, CGNAT, Tor y el tipo de conexión. La geolocalización por IP es aproximada y no permite localizar a un usuario concreto. Para obtener la IP real de una persona solo se puede mediante orden judicial al ISP o a la plataforma correspondiente.
+  </div>
+
+  <h3>Cómo proteger tu propia IP</h3>
+  <ul>
+    <li>Usa una <strong>VPN de confianza</strong> (Mullvad, ProtonVPN, IVPN).</li>
+    <li>Usa <strong>Tor Browser</strong> para anonimato fuerte.</li>
+    <li>Revisa los <strong>permisos de tu navegador</strong> (WebRTC puede filtrar tu IP local).</li>
+    <li>No hagas clic en <strong>enlaces sospechosos</strong> de desconocidos.</li>
+    <li>Usa <strong>DNS cifrado</strong> (DoH/DoT) para evitar fugas.</li>
+    <li>En móvil, desactiva <strong>WebRTC</strong> en navegadores que lo permitan.</li>
+  </ul>
+
+</section>
+
+</main>
+
+<footer>
+  <p>Guía técnica educativa. No incluye ni promueve técnicas de obtención no consentida de datos personales.</p>
+  <p>Última actualización: 2025</p>
+</footer>
+
+</body>
+</html>
